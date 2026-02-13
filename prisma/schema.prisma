@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+// ============================================
+// USUARIOS
+// ============================================
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?  @map("avatar_url")
+  currency  String   @default("EUR")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  transactions   Transaction[]
+  categories     Category[]
+  budgets        Budget[]
+  investments    Investment[]
+  alerts         Alert[]
+  chartPrefs     ChartPreference[]
+  favoriteStocks FavoriteStock[]
+
+  @@map("users")
+}
+
+// ============================================
+// TRANSACCIONES
+// ============================================
+model Transaction {
+  id          String          @id @default(uuid())
+  userId      String          @map("user_id")
+  type        TransactionType
+  amount      Decimal         @db.Decimal(12, 2)
+  description String
+  notes       String?
+  date        DateTime        @db.Date
+  categoryId  String          @map("category_id")
+  isRecurring Boolean         @default(false) @map("is_recurring")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([userId, date])
+  @@index([userId, categoryId])
+  @@map("transactions")
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+// ============================================
+// CATEGORÍAS
+// ============================================
+model Category {
+  id        String          @id @default(uuid())
+  userId    String?         @map("user_id")
+  name      String
+  icon      String
+  color     String
+  type      TransactionType
+  isDefault Boolean         @default(false) @map("is_default")
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@unique([userId, name, type])
+  @@map("categories")
+}
+
+// ============================================
+// PRESUPUESTOS
+// ============================================
+model Budget {
+  id         String       @id @default(uuid())
+  userId     String       @map("user_id")
+  categoryId String       @map("category_id")
+  amount     Decimal      @db.Decimal(12, 2)
+  period     BudgetPeriod
+  startDate  DateTime     @db.Date @map("start_date")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+  alerts   Alert[]
+
+  @@unique([userId, categoryId, period])
+  @@map("budgets")
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+// ============================================
+// ALERTAS
+// ============================================
+model Alert {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  budgetId    String    @map("budget_id")
+  threshold   Int
+  isActive    Boolean   @default(true) @map("is_active")
+  triggeredAt DateTime? @map("triggered_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@map("alerts")
+}
+
+// ============================================
+// INVERSIONES
+// ============================================
+model Investment {
+  id           String         @id @default(uuid())
+  userId       String         @map("user_id")
+  name         String
+  ticker       String
+  type         InvestmentType
+  units        Decimal        @db.Decimal(12, 6)
+  avgBuyPrice  Decimal        @db.Decimal(12, 4) @map("avg_buy_price")
+  currency     String         @default("EUR")
+  currentPrice Decimal?       @db.Decimal(12, 4) @map("current_price")
+  lastUpdated  DateTime?      @map("last_updated")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  priceHistory PriceHistory[]
+
+  @@index([userId])
+  @@map("investments")
+}
+
+enum InvestmentType {
+  ETF
+  FUND
+  STOCK
+  CRYPTO
+  BOND
+  OTHER
+}
+
+// ============================================
+// HISTORIAL DE PRECIOS
+// ============================================
+model PriceHistory {
+  id           String     @id @default(uuid())
+  investmentId String     @map("investment_id")
+  price        Decimal    @db.Decimal(12, 4)
+  date         DateTime   @db.Date
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  investment Investment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+
+  @@unique([investmentId, date])
+  @@index([investmentId, date])
+  @@map("price_history")
+}
+
+// ============================================
+// STOCKS FAVORITOS (Yahoo Finance)
+// ============================================
+model FavoriteStock {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  ticker    String
+  name      String
+  exchange  String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ticker])
+  @@index([userId])
+  @@map("favorite_stocks")
+}
+
+// ============================================
+// PREFERENCIAS DE GRÁFICOS
+// ============================================
+model ChartPreference {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  chartKey  String   @map("chart_key")
+  chartType String   @map("chart_type")
+  config    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chartKey])
+  @@map("chart_preferences")
+}
