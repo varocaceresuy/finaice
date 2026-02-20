@@ -23,6 +23,7 @@ export function ReceiptUpload({ onParsed, onClose }: ReceiptUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const processFile = useCallback(
     async (file: File) => {
@@ -137,22 +138,45 @@ export function ReceiptUpload({ onParsed, onClose }: ReceiptUploadProps) {
           )}
         </div>
       ) : (
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`relative flex flex-col items-center justify-center py-10 px-4 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
-            dragOver
-              ? "border-emerald-400 bg-emerald-400/[0.05]"
-              : "border-white/[0.12] hover:border-white/[0.20] hover:bg-white/[0.02]"
-          }`}
-        >
+        <div className="space-y-3">
+          {/* Camera and Upload buttons */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="flex flex-col items-center gap-2 py-6 rounded-xl border border-emerald-400/25 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.12] transition-all cursor-pointer"
+            >
+              <div className="w-12 h-12 rounded-xl bg-emerald-400/[0.15] flex items-center justify-center">
+                <Camera className="w-6 h-6 text-emerald-400" />
+              </div>
+              <span className="text-sm font-medium text-emerald-400">
+                Abrir cámara
+              </span>
+              <span className="text-xs text-text-muted">
+                Tomar foto del ticket
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex flex-col items-center gap-2 py-6 rounded-xl border border-cyan-400/25 bg-cyan-500/[0.06] hover:bg-cyan-500/[0.12] transition-all cursor-pointer"
+            >
+              <div className="w-12 h-12 rounded-xl bg-cyan-400/[0.15] flex items-center justify-center">
+                <Upload className="w-6 h-6 text-cyan-400" />
+              </div>
+              <span className="text-sm font-medium text-cyan-400">
+                Subir imagen
+              </span>
+              <span className="text-xs text-text-muted">
+                Galería o screenshot
+              </span>
+            </button>
+          </div>
+
+          {/* Hidden file inputs */}
           <input
-            ref={fileInputRef}
+            ref={cameraInputRef}
             type="file"
             accept="image/*"
             capture="environment"
@@ -162,25 +186,35 @@ export function ReceiptUpload({ onParsed, onClose }: ReceiptUploadProps) {
               if (file) processFile(file);
             }}
           />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) processFile(file);
+            }}
+          />
 
-          <div className="flex items-center gap-4 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-emerald-400/[0.10] flex items-center justify-center">
-              <Camera className="w-6 h-6 text-emerald-400" />
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-cyan-400/[0.10] flex items-center justify-center">
-              <Upload className="w-6 h-6 text-cyan-400" />
-            </div>
+          {/* Drag & drop zone */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            className={`flex items-center justify-center py-4 px-4 rounded-xl border-2 border-dashed transition-all ${
+              dragOver
+                ? "border-emerald-400 bg-emerald-400/[0.05]"
+                : "border-white/[0.08] hover:border-white/[0.15]"
+            }`}
+          >
+            <p className="text-xs text-text-muted text-center">
+              O arrastra una imagen aquí · También puedes pegar con Ctrl+V
+            </p>
           </div>
-
-          <p className="text-sm font-medium text-text-primary mb-1">
-            Sube una foto del ticket o screenshot
-          </p>
-          <p className="text-xs text-text-muted text-center">
-            Arrastra, haz click, pega (Ctrl+V) o usa la cámara
-          </p>
-          <p className="text-xs text-text-muted mt-1">
-            JPG, PNG, WebP — máx. 10MB
-          </p>
         </div>
       )}
     </div>
