@@ -1,15 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Search } from "lucide-react";
+import { Plus, X, Search, Camera, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { ReceiptUpload } from "./ReceiptUpload";
 
 interface TransactionFiltersProps {
   categories: { id: string; name: string; icon: string; type: string }[];
   currentType?: string;
   currentCategoryId?: string;
   showNewForm?: "income" | "expense";
+}
+
+interface ParsedReceipt {
+  amount: number;
+  description: string;
+  date: string;
+  type: "INCOME" | "EXPENSE";
+  categoryId: string;
+  confidence: number;
 }
 
 export function TransactionFilters({
@@ -19,10 +29,18 @@ export function TransactionFilters({
 }: TransactionFiltersProps) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(!!showNewForm);
+  const [showReceipt, setShowReceipt] = useState(false);
   const [formType, setFormType] = useState<"INCOME" | "EXPENSE">(
     showNewForm === "income" ? "INCOME" : "EXPENSE"
   );
   const [loading, setLoading] = useState(false);
+  const [aiPrefilled, setAiPrefilled] = useState(false);
+
+  // Refs for pre-filling form
+  const descRef = useRef<HTMLInputElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+  const dateRef = useRef<HTMLInputElement>(null);
+  const categoryRef = useRef<HTMLSelectElement>(null);
 
   const filteredCategories = categories.filter((c) => c.type === formType);
 
@@ -30,6 +48,22 @@ export function TransactionFilters({
     const params = new URLSearchParams();
     if (type) params.set("type", type);
     router.push(`/dashboard/transactions?${params.toString()}`);
+  };
+
+  const handleReceiptParsed = (data: ParsedReceipt) => {
+    // Switch to form mode with pre-filled data
+    setShowReceipt(false);
+    setShowForm(true);
+    setFormType(data.type);
+    setAiPrefilled(true);
+
+    // Pre-fill form after a tick (to let the form render)
+    setTimeout(() => {
+      if (descRef.current) descRef.current.value = data.description;
+      if (amountRef.current) amountRef.current.value = String(data.amount);
+      if (dateRef.current) dateRef.current.value = data.date;
+      if (categoryRef.current) categoryRef.current.value = data.categoryId;
+    }, 50);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -53,6 +87,7 @@ export function TransactionFilters({
       if (!res.ok) throw new Error();
       toast.success("Transacción creada");
       setShowForm(false);
+      setAiPrefilled(false);
       router.refresh();
     } catch {
       toast.error("Error al crear la transacción");
@@ -97,9 +132,34 @@ export function TransactionFilters({
               className="pl-9 pr-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-text-primary placeholder:text-text-muted w-52 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-colors"
             />
           </div>
-          {/* CTA Nueva transacción / Cancelar */}
+
+          {/* Scan receipt button */}
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => {
+              setShowReceipt(!showReceipt);
+              if (showReceipt) return;
+              setShowForm(false);
+            }}
+            className={`flex items-center gap-2 ${showReceipt ? "btn-ghost" : "px-4 py-2.5 rounded-xl text-sm font-semibold border border-emerald-400/25 bg-emerald-500/[0.10] text-emerald-400 hover:bg-emerald-500/[0.15] transition-all cursor-pointer"}`}
+          >
+            {showReceipt ? (
+              <X className="w-4 h-4" />
+            ) : (
+              <Camera className="w-4 h-4" />
+            )}
+            {showReceipt ? "Cancelar" : "Escanear ticket"}
+          </button>
+
+          {/* New transaction button */}
+          <button
+            onClick={() => {
+              setShowForm(!showForm);
+              if (showForm) {
+                setAiPrefilled(false);
+                return;
+              }
+              setShowReceipt(false);
+            }}
             className={`flex items-center gap-2 ${showForm ? "btn-ghost" : "btn-primary"}`}
           >
             {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
@@ -108,11 +168,29 @@ export function TransactionFilters({
         </div>
       </div>
 
+      {/* Receipt upload zone */}
+      {showReceipt && (
+        <ReceiptUpload
+          onParsed={handleReceiptParsed}
+          onClose={() => setShowReceipt(false)}
+        />
+      )}
+
       {showForm && (
         <form
           onSubmit={handleSubmit}
           className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-5 space-y-4 animate-fade-in-up"
         >
+          {/* AI badge */}
+          {aiPrefilled && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-400/[0.08] border border-emerald-400/[0.15]">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs text-emerald-400 font-medium">
+                Datos extraídos con IA — revisa y confirma antes de guardar
+              </span>
+            </div>
+          )}
+
           {/* Type toggle */}
           <div className="flex gap-2">
             {(["EXPENSE", "INCOME"] as const).map((t) => (
@@ -136,15 +214,15 @@ export function TransactionFilters({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1.5">Descripción</label>
-              <input name="description" required placeholder="Ej: Compra supermercado" className={inputClass} />
+              <input ref={descRef} name="description" required placeholder="Ej: Compra supermercado" className={inputClass} />
             </div>
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1.5">Cantidad (€)</label>
-              <input name="amount" type="number" step="0.01" min="0.01" required placeholder="0.00" className={inputClass} />
+              <input ref={amountRef} name="amount" type="number" step="0.01" min="0.01" required placeholder="0.00" className={inputClass} />
             </div>
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1.5">Categoría</label>
-              <select name="categoryId" required className={inputClass}>
+              <select ref={categoryRef} name="categoryId" required className={inputClass}>
                 <option value="">Seleccionar...</option>
                 {filteredCategories.map((c) => (
                   <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
@@ -153,7 +231,7 @@ export function TransactionFilters({
             </div>
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1.5">Fecha</label>
-              <input name="date" type="date" required defaultValue={new Date().toISOString().split("T")[0]} className={inputClass} />
+              <input ref={dateRef} name="date" type="date" required defaultValue={new Date().toISOString().split("T")[0]} className={inputClass} />
             </div>
           </div>
 
