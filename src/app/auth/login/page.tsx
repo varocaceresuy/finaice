@@ -25,7 +25,7 @@ export default function LoginPage() {
           <img
             src="/finai-logo.svg"
             alt="FinAI"
-            className="w-16 h-16 mb-6 shadow-[0_0_40px_rgba(52,211,153,0.25)] mx-auto"
+            className="w-8 h-8 mb-6 shadow-[0_0_40px_rgba(52,211,153,0.25)] mx-auto"
           />
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-text-primary to-text-secondary bg-clip-text text-transparent">
             FinAI
