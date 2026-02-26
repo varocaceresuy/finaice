@@ -10,7 +10,7 @@ export default async function DashboardLayout({
   const user = await getCurrentUser();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-deep">
+    <div className="flex h-screen overflow-hidden bg-[var(--bg-deep)]">
       <Sidebar
         user={{
           name: user.name,
